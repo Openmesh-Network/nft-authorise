@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	ethcrypt "github.com/ethereum/go-ethereum/crypto"
-	"github.com/nanmu42/etherscan-api"
 	etherscanapi "github.com/nanmu42/etherscan-api"
 )
 
@@ -28,7 +27,7 @@ func getNFTfromValidatorPassList(tokenid string, validNFTs []Validator_Pass) str
 }
 
 // Hardcoded for etherscan as source of ethereum data.
-func getValidNFTsFromEtherscan(contractAddress string, network etherscan.Network) []Validator_Pass {
+func getValidNFTsFromEtherscan(contractAddress string, network etherscanapi.Network) []Validator_Pass {
 	client := etherscanapi.New(network, "")
 	client.ContractABI(contractAddress)
 
