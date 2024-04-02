@@ -1,17 +1,63 @@
 package nft_auth
 
 import (
-	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
-
-	ethcrypt "github.com/ethereum/go-ethereum/crypto"
-	etherscanapi "github.com/nanmu42/etherscan-api"
+	"net/rpc"
+	"time"
 )
 
 type Validator_Pass struct {
 	tokenId          string // NFT token ID
 	validatorAddress string // CometBFT validator address eg. cometvaloper1abc123def456ghi789jkl123mno456pqr789stu
+}
+
+type Tracker struct {
+	// Abstracts the source of Ethereum RPC to be used for NFT tracking. (Support for external or internal nodes)
+	RpcAddress    string
+	ValidatorList []Validator_Pass
+}
+
+func Start(trackerSource Tracker, contractAddress string) {
+	ticker := time.NewTicker(5 * time.Second)
+	quit := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				// The threat we would be tackling here is a malicious RPC source, which is difficult to defend against, but there should be some basic resilience.
+				ValidatorList, err := fetchNFTsRPC(trackerSource, contractAddress)
+				// We trust the previously acquired validator lists, if there are conflicts with new additions only trust the ones confirmed by the most RPC requests (over time)
+				// Inconsistencies in RPC response should mean the list does not change for some time, wait until the new request-responses have built up to be greater than the old ones.
+				if err != nil {
+					panic(err)
+				}
+				// Implement error handling and behaviour for when RPC source fails.
+				if len(ValidatorList) == 0 {
+					// If chosen RPC source fails, try etherscan.
+					fmt.Println("No NFTs found. Trying etherscan.")
+					/*
+						ValidatorList, err := getValidNFTsFromEtherscan(contractAddress, sepolia)
+						if err != nil {
+							panic(err)
+						}
+					*/
+				}
+				trackerSource.ValidatorList = ValidatorList
+
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+// Fetch a full list of Validator Passes from a smart contract address.
+func fetchNFTsRPC(source Tracker, contractAddress string) ([]Validator_Pass, error) {
+	// Get NFTs from RPC
+	var validNFTs []Validator_Pass
+	rpc.Dial("sepolia", source.RpcAddress)
+	return validNFTs, nil
 }
 
 // May return "Nft not found" if not found in the list.
@@ -26,47 +72,10 @@ func getNFTfromValidatorPassList(tokenid string, validNFTs []Validator_Pass) str
 	return "Nft not found"
 }
 
-// Hardcoded for etherscan as source of ethereum data.
-func getValidNFTsFromEtherscan(contractAddress string, network etherscanapi.Network) []Validator_Pass {
-	client := etherscanapi.New(network, "")
-	client.ContractABI(contractAddress)
-
-	//interest, err := client.TokenTotalSupply(contractAddress)
-
-	walletAddress := "0x0000000000000000000000000000000000000000"
-	validNFTs, err := client.ERC721Transfers(&contractAddress, &walletAddress, nil, nil, 0, 0, true)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(validNFTs)
-	for validNFTs := range validNFTs {
-		fmt.Println(validNFTs)
-	}
-
-	return nil
-}
-
-// Derive the cometBFT address based on the public key (by hashing it)
-func deriveAddressFromPubkey(claimedPublicKey ecdsa.PublicKey) string {
-	// Convert the public key to uncompressed format
-	uncompressedPubkey := ethcrypt.FromECDSAPub(&claimedPublicKey)
-
-	// Take the Keccak-256 hash of the uncompressed public key
-	hash := ethcrypt.Keccak256(uncompressedPubkey[1:])
-
-	// Take the last 20 bytes of the hash as the wallet address
-	address := hash[12:]
-
-	// Convert the address to a hexadecimal string and add the "0x" prefix
-	derivedWalletAddress := "0x" + hex.EncodeToString(address)
-
-	return derivedWalletAddress
-}
-
 // Validate that there is an NFT with that public key in the list of valid NFTs. Very slow and inefficient method.
-func validateNFTMembership(walletAddress string, claimedPublicKey ecdsa.PublicKey, validNFTs []Validator_Pass) bool {
+func validateNFTMembership(cometbftAddress string, validNFTs []Validator_Pass) bool {
 	for nft := range validNFTs {
-		if validNFTs[nft].validatorAddress == walletAddress {
+		if validNFTs[nft].validatorAddress == cometbftAddress {
 			return true
 		}
 	}
