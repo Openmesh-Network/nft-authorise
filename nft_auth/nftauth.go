@@ -19,9 +19,8 @@ type Tracker struct {
 	ValidatorList []Validator_Pass
 }
 
-func NewTracker(rpcSourceAddress string) *Tracker {
-	fmt.Println(rpcSourceAddress)
-	return &Tracker{
+func NewTracker(rpcSourceAddress string) Tracker {
+	return Tracker{
 		RpcAddress:    rpcSourceAddress,
 		ValidatorList: []Validator_Pass{},
 	}
@@ -37,7 +36,7 @@ func (nft_tracker *Tracker) Start(contractAddress string) {
 			case <-ticker.C:
 				// Vulnerability: does not consider that the RPC source may be malicious, this source must be trusted!
 				// To-Do: Use Openmesh verified Ethereum data as an RPC source.
-				ValidatorList, err := fetchNFTsRPC(nft_tracker.RpcAddress, contractAddress)
+				ValidatorList, err := FetchValidatorPassesRPC(nft_tracker.RpcAddress, contractAddress)
 				if err != nil {
 					panic(err)
 				}
@@ -53,7 +52,7 @@ func (nft_tracker *Tracker) Start(contractAddress string) {
 }
 
 // Fetch a full list of Validator Passes from a smart contract address.
-func fetchNFTsRPC(rpcSource string, contractAddress string) ([]Validator_Pass, error) {
+func FetchValidatorPassesRPC(rpcSource string, contractAddress string) ([]Validator_Pass, error) {
 	var validNFTs []Validator_Pass
 
 	ethereum_client, err := ethclient.Dial(rpcSource)
