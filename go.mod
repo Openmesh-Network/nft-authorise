@@ -1,4 +1,4 @@
-module github.com/openmesh-network/nft-authorise
+module github.com/Openmesh-Network/nft-authorise
 
 go 1.22.1
 
