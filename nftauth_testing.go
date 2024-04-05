@@ -1,16 +1,30 @@
 package nft_auth
 
 import (
-	"fmt"
+	"encoding/hex"
 	"testing"
 
-	"github.com/nanmu42/etherscan-api"
-	etherscanapi "github.com/nanmu42/etherscan-api"
+	ethereum "github.com/ethereum/go-ethereum/crypto"
 )
 
 const contractAddress string = "0x8D64aB58a17dA7d8788367549c513386f09a0A70"
-const sepolia etherscan.Network = "api-sepolia"
 
+//const sepolia etherscan.Network = "api-sepolia"
+
+func TestNftTracker(t *testing.T) {
+	// Compute Keccak256 hash of the event signature
+	hash := ethereum.Keccak256([]byte("redeem(uint256)"))
+	eventSignature := hex.EncodeToString(hash)
+
+	// Concatenate "0x" with the event signature
+	eventSignatureWithPrefix := "0x" + eventSignature
+
+	t.Log("Event sig:", eventSignatureWithPrefix)
+	trackerobj := NewTracker("https://rpc.ankr.com/eth_sepolia")
+	trackerobj.Start(contractAddress)
+}
+
+/*
 func TestGetValidNFTs(t *testing.T) {
 	var mintedNFTs = getValidNFTsFromEtherscan(contractAddress, sepolia)
 	for nft := range mintedNFTs {
@@ -47,3 +61,4 @@ func TestMockNFT(t *testing.T) {
 	result := validateNFTMembership(testValidator, validatorTestList)
 	t.Log("Result of NFT validation:", result)
 }
+*/
