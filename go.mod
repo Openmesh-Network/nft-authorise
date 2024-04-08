@@ -2,10 +2,7 @@ module github.com/Openmesh-Network/nft-authorise
 
 go 1.22.1
 
-require (
-	github.com/ethereum/go-ethereum v1.13.14
-	github.com/nanmu42/etherscan-api v1.10.0
-)
+require github.com/ethereum/go-ethereum v1.13.14
 
 require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect

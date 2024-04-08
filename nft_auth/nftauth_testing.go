@@ -8,12 +8,11 @@ import (
 )
 
 const contractAddress string = "0x8D64aB58a17dA7d8788367549c513386f09a0A70"
-
-//const sepolia etherscan.Network = "api-sepolia"
+const deployBlock = 5517796 // 0x55bc06 This is the block at which the validator pass contact was deployed on-chain.
 
 func TestNftTracker(t *testing.T) {
 	// Compute Keccak256 hash of the event signature
-	hash := ethereum.Keccak256([]byte("redeem(uint256)"))
+	hash := ethereum.Keccak256([]byte("cheapRedeem(uint256,bytes32)"))
 	eventSignature := hex.EncodeToString(hash)
 
 	// Concatenate "0x" with the event signature
@@ -21,44 +20,18 @@ func TestNftTracker(t *testing.T) {
 
 	t.Log("Event sig:", eventSignatureWithPrefix)
 	trackerobj := NewTracker("https://rpc.ankr.com/eth_sepolia")
-	trackerobj.Start(contractAddress)
+	trackerobj.Start(contractAddress, deployBlock)
 }
 
-/*
-func TestGetValidNFTs(t *testing.T) {
-	var mintedNFTs = getValidNFTsFromEtherscan(contractAddress, sepolia)
-	for nft := range mintedNFTs {
-		t.Log(mintedNFTs[nft].tokenId)
-	}
-}
-
-// Independent test using etherscan on MockNFTs. Later, we should abstract an input for 'getValidNFTsFromFunc(fetchFunc func(), contractAddress string) []Validator_Pass'
-func getValidNFTsFromEtherscan(contractAddress string, network etherscanapi.Network) []Validator_Pass {
-	client := etherscanapi.New(network, "")
-	client.ContractABI(contractAddress)
-
-	//interest, err := client.TokenTotalSupply(contractAddress)
-
-	walletAddress := "0x0000000000000000000000000000000000000000"
-	validNFTs, err := client.ERC721Transfers(&contractAddress, &walletAddress, nil, nil, 0, 0, true)
+func testRPCfetch(t *testing.T) {
+	list, err := FetchValidatorPassesRPC("https://rpc.ankr.com/eth_sepolia", contractAddress, string(deployBlock), string(deployBlock+5))
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(validNFTs)
-	for validNFTs := range validNFTs {
-		fmt.Println(validNFTs)
+	if len(list) == 0 {
+		t.Log("No NFTs found")
 	}
-
-	return nil
+	for vp := range list {
+		println(list[vp].tokenId)
+	}
 }
-
-func TestMockNFT(t *testing.T) {
-
-	// Test validating NFTs.
-	// Get NFTs from Etherscan (sepolia contract)
-	testValidator := ""
-	validatorTestList := getValidNFTsFromEtherscan(contractAddress, sepolia)
-	result := validateNFTMembership(testValidator, validatorTestList)
-	t.Log("Result of NFT validation:", result)
-}
-*/
