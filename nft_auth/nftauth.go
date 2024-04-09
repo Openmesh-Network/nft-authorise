@@ -47,9 +47,10 @@ func (nft_tracker *Tracker) Start(contractAddress string, startBlock int) {
 
 	//ticker := time.NewTicker(1 * time.Second)
 	go func() {
-		fmt.Println("Started goroutine")
-		// First-time behaviour: record the latest block to ensure none are missed.
+		fmt.Println("Started historical search goroutine")
+		// Go routine purpose: record the latest block and search back in time to the start block until all historical redeem events are recorded.
 
+		// To-Do: Add load & save functionality so that this doesn't need to be repeated every time. This can take a long time, a delay >1s may also be necessary.
 		for {
 			select {
 			case <-nft_tracker.quit:
@@ -57,7 +58,7 @@ func (nft_tracker *Tracker) Start(contractAddress string, startBlock int) {
 				return // Exit the goroutine
 			default:
 				// Fetch validator passes from start block to latest block (at the time of subscription)
-				ValidatorList, err := FetchValidatorPassesRPC(nft_tracker.RpcAddress, contractAddress, string(nextStartBlock), string(nextStartBlock+5))
+				ValidatorList, err := FetchValidatorPassesRPC(nft_tracker.RpcAddress, contractAddress, nextStartBlock, nextStartBlock+5)
 				if err != nil {
 					panic(err)
 				}
@@ -67,6 +68,7 @@ func (nft_tracker *Tracker) Start(contractAddress string, startBlock int) {
 
 				// Delay before fetching again.
 				time.Sleep(1 * time.Second)
+				nextStartBlock += 5
 			}
 		}
 	}()
@@ -78,6 +80,7 @@ func (nft_tracker *Tracker) Start(contractAddress string, startBlock int) {
 			return // Exit the goroutine
 		default:
 			// Subscribe to event stream and update accordingly
+			// ethereum_client.Client().Subscribe()
 		}
 	}
 
@@ -88,7 +91,7 @@ func (nft_tracker *Tracker) Stop() {
 }
 
 // Fetch a full list of Validator Passes from a smart contract address.
-func FetchValidatorPassesRPC(rpcSource string, contractAddress string, fromBlock string, toBlock string) ([]Validator_Pass, error) {
+func FetchValidatorPassesRPC(rpcSource string, contractAddress string, fromBlock int, toBlock int) ([]Validator_Pass, error) {
 	var validNFTs []Validator_Pass
 	fmt.Println("Fetching validator passes from RPC")
 
@@ -103,7 +106,7 @@ func FetchValidatorPassesRPC(rpcSource string, contractAddress string, fromBlock
 	RpcArguments := map[string]interface{}{
 		"fromBlock": fromBlock,
 		"toBlock":   toBlock,
-		"address":   "0x8D64aB58a17dA7d8788367549c513386f09a0A70",
+		"address":   contractAddress,
 		"topics": []string{
 			"0x4fc9c25b46f7854a495f8830e3d532a48cd64b4e4e3f6038557fe5669885bbe6", // Keccak256 event signature of: Redeemed(uint256,bytes32)
 		},
@@ -112,17 +115,21 @@ func FetchValidatorPassesRPC(rpcSource string, contractAddress string, fromBlock
 	// Call eth_getLogs on RPC to find the any redeemed validator addresses.
 	//ctxToPreventHanging, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	//defer cancel()
-	fmt.Println("Getting redeem event logs from RPC.")
+	fmt.Printf("Getting redeem event logs from blocks %d to %d\n", fromBlock, toBlock)
 	response := make([]RpcResult, 1)
 
 	newerr := ethereum_client.Client().Call(&response, "eth_getLogs", RpcArguments)
 	if newerr != nil {
 		panic(newerr)
 	}
-	fmt.Println(response)
+
+	// Check that the response returned
 
 	// response handling logic
-	validNFTs = append(validNFTs, *NewValidatorPass(response[0].Topics[1], response[0].Data))
+	if len(response) > 0 {
+		fmt.Println(response[0].Data)
+		validNFTs = append(validNFTs, *NewValidatorPass(response[0].Topics[1], response[0].Data))
+	}
 
 	return validNFTs, nil
 }

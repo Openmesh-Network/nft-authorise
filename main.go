@@ -26,7 +26,7 @@ func main() {
 	trackerobj.Start(contractAddress, deployBlock)
 	defer trackerobj.Stop()
 	fmt.Println("Tracker started, waiting for go routine.")
-	ValidatorList, err := vpauth.FetchValidatorPassesRPC(rpcSource, contractAddress, string(deployBlock), string(deployBlock+5))
+	ValidatorList, err := vpauth.FetchValidatorPassesRPC(rpcSource, contractAddress, deployBlock, deployBlock+5)
 	if err != nil {
 		panic(err)
 	}

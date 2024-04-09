@@ -12,7 +12,7 @@ const deployBlock = 5517796 // 0x55bc06 This is the block at which the validator
 
 func TestNftTracker(t *testing.T) {
 	// Compute Keccak256 hash of the event signature
-	hash := ethereum.Keccak256([]byte("cheapRedeem(uint256,bytes32)"))
+	hash := ethereum.Keccak256([]byte("Redeemed(uint256,bytes32)"))
 	eventSignature := hex.EncodeToString(hash)
 
 	// Concatenate "0x" with the event signature
@@ -24,7 +24,7 @@ func TestNftTracker(t *testing.T) {
 }
 
 func testRPCfetch(t *testing.T) {
-	list, err := FetchValidatorPassesRPC("https://rpc.ankr.com/eth_sepolia", contractAddress, string(deployBlock), string(deployBlock+5))
+	list, err := FetchValidatorPassesRPC("https://rpc.ankr.com/eth_sepolia", contractAddress, deployBlock, deployBlock+5)
 	if err != nil {
 		panic(err)
 	}
