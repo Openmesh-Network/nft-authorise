@@ -104,8 +104,8 @@ func FetchValidatorPassesRPC(rpcSource string, contractAddress string, fromBlock
 
 	// Build the RPC arguments for eth_getLogs
 	RpcArguments := map[string]interface{}{
-		"fromBlock": fromBlock,
-		"toBlock":   toBlock,
+		"fromBlock": string(fmt.Sprintf("%d", fromBlock)), // fromBlock,
+		"toBlock":   string(fmt.Sprintf("%d", toBlock)),   // toBlock,
 		"address":   contractAddress,
 		"topics": []string{
 			"0x4fc9c25b46f7854a495f8830e3d532a48cd64b4e4e3f6038557fe5669885bbe6", // Keccak256 event signature of: Redeemed(uint256,bytes32)
@@ -129,6 +129,8 @@ func FetchValidatorPassesRPC(rpcSource string, contractAddress string, fromBlock
 	if len(response) > 0 {
 		fmt.Println(response[0].Data)
 		validNFTs = append(validNFTs, *NewValidatorPass(response[0].Topics[1], response[0].Data))
+	} else {
+		fmt.Println("Response is completely empty")
 	}
 
 	return validNFTs, nil

@@ -23,8 +23,8 @@ func TestNftTracker(t *testing.T) {
 	trackerobj.Start(contractAddress, deployBlock)
 }
 
-func testRPCfetch(t *testing.T) {
-	list, err := FetchValidatorPassesRPC("https://rpc.ankr.com/eth_sepolia", contractAddress, deployBlock, deployBlock+5)
+func TestRPCfetch(t *testing.T) {
+	list, err := FetchValidatorPassesRPC("https://rpc.ankr.com/eth_sepolia", contractAddress, 5618693, 5618695)
 	if err != nil {
 		panic(err)
 	}
@@ -32,6 +32,7 @@ func testRPCfetch(t *testing.T) {
 		t.Log("No NFTs found")
 	}
 	for vp := range list {
-		println(list[vp].tokenId)
+		t.Log("Found Validator pass with token id: ", list[vp].tokenId, "and validator address: ", list[vp].validatorAddress)
 	}
+	t.Log("Found", len(list), "NFTs")
 }
