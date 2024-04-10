@@ -36,3 +36,13 @@ func TestRPCfetch(t *testing.T) {
 	}
 	t.Log("Found", len(list), "NFTs")
 }
+
+func TestCallbackfuncs(t *testing.T) {
+	trackerobj := NewTracker("https://rpc.ankr.com/eth_sepolia")
+	trackerobj.Start("0x8D64aB58a17dA7d8788367549c513386f09a0A70", 5517796)
+
+	redeemed := join_callback("61a83a39c806449ddc66feb6c86a1994456a8c8b", trackerobj)
+	t.Log("Tracked a successful redeem for cometBFT address: ", redeemed)
+}
+
+// Found Validator pass with token id:  0x0000000000000000000000000000000000000000000000000000000000000001 and validator address:  0x61a83a39c806449ddc66feb6c86a1994456a8c8b000000000000000000000000

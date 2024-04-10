@@ -7,6 +7,38 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+/*
+Transaction callback - set this (cometBftAddress & tokenId) voting power to 1 for block proposer if their address is redeemed.
+Verify callback - check this (CometBft address & tokenId) is redeemed under the new tokenId.
+*/
+
+// Consideration: Should this callback even need a tokenId as an input?
+// Confirms a cbft address' existence in the Validator Pass redeem events. Is used by CometBFT ABCI before the program tries to issue a join tx.
+func join_callback(cbft_address string, trackerIns *Tracker) (determination bool) {
+	for pass := range trackerIns.ValidatorList {
+		if trackerIns.ValidatorList[pass].validatorAddress == cbft_address {
+			// Add this tokenId to the join tx. This callback verifies that you have redeemed correctly.
+			// Could return token id here if we need to.
+			return true
+		}
+	}
+	return false
+}
+
+func verify_validatorpass_callback(cbft_address string, tokenId string, trackerIns *Tracker) (determination bool) {
+	for pass := range trackerIns.ValidatorList {
+		if trackerIns.ValidatorList[pass].tokenId == tokenId {
+			if trackerIns.ValidatorList[pass].validatorAddress == cbft_address {
+				// Add this tokenId to the join tx. This callback verifies that you have redeemed correctly.
+				return true
+			}
+		}
+	}
+	return false
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+
 type Validator_Pass struct {
 	tokenId          string // NFT token ID
 	validatorAddress string // CometBFT validator address eg. cometvaloper1abc123def456ghi789jkl123mno456pqr789stu
@@ -62,6 +94,8 @@ func (nft_tracker *Tracker) Start(contractAddress string, startBlock int) {
 				if err != nil {
 					panic(err)
 				}
+				// To-Do: Append not update. Should finish when all between startBlock & recorded latestBlock are responded to by RPC.
+				// To-Do: handle the different possible RPC responses including ones made by invalid requests or rate-limiting.
 
 				// Update ValidatorList
 				nft_tracker.ValidatorList = ValidatorList
