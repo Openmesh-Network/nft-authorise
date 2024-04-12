@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 
@@ -21,9 +22,10 @@ func main() {
 	eventSignatureWithPrefix := "0x" + eventSignature
 
 	fmt.Printf("Event sig: %s\n", eventSignatureWithPrefix)
-	trackerobj := vpauth.NewTracker(rpcSource, false)
+	trackerobj := vpauth.NewTracker(rpcSource)
 	fmt.Println("Tracker object created.")
-	trackerobj.StartTracking(contractAddress, deployBlock, nil)
+	ctx := context.Background()
+	trackerobj.StartTracking(ctx, contractAddress, deployBlock, nil) // NEED CONTEXT
 	defer trackerobj.Stop()
 	fmt.Println("Tracker started, waiting for go routine.")
 	ValidatorList, err := vpauth.FetchRedeemEventsRPC(rpcSource, contractAddress, deployBlock, deployBlock+5)
@@ -33,4 +35,5 @@ func main() {
 	if len(ValidatorList) != 0 {
 		fmt.Println(ValidatorList[0])
 	}
+
 }

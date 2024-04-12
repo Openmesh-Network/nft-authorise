@@ -1,8 +1,8 @@
 package nft_auth
 
 import (
+	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -48,8 +48,8 @@ type Tracker struct {
 	quit          chan struct{}
 }
 
-// Create a new tracker object to track Validator Passes, pass a boolean to store the tracked passes on disk.
-func NewTracker(rpcSourceAddress string, storeOnDisk bool) *Tracker {
+// Create a new tracker object to track Validator Passes.
+func NewTracker(rpcSourceAddress string) *Tracker {
 	return &Tracker{
 		RpcAddress:    rpcSourceAddress,
 		ValidatorList: []Validator_RedeemEvent{},
@@ -57,31 +57,9 @@ func NewTracker(rpcSourceAddress string, storeOnDisk bool) *Tracker {
 	}
 }
 
-// Save the tracked Validator Passes to disk.
-func (nft_tracker *Tracker) SaveToFile(path string) {
-
-}
-
-// Load Validator passes from disk.
-func (nft_tracker *Tracker) LoadFromFile(path any) {
-	if reflect.TypeOf(path) == reflect.TypeFor[string]() {
-		if true {
-			// Load from disk
-
-		} else {
-			// Create a new file (saves empty validator list)
-
-		}
-
-	} else {
-		fmt.Println("Path to tracking file must be a string")
-	}
-
-}
-
 // Start tracking redeem events from a Validator Pass smart contract address, you should be able to deterministically call validateNFTMembership()
-// for peer validation in a CometBFT callback. If you are storing on disk, pass the path as a string. If you are not storing and loading the path can be nil.
-func (nft_tracker *Tracker) StartTracking(contractAddress string, startBlock int, path any) { // To-Do: Return an error channel
+// for peer validation in a CometBFT callback.
+func (nft_tracker *Tracker) StartTracking(ctx context.Context, contractAddress string, startBlock int, path any) { // To-Do: Return an error channel
 	nextStartBlock := startBlock
 
 	// Initialise the ethereum RPC client
@@ -96,7 +74,13 @@ func (nft_tracker *Tracker) StartTracking(contractAddress string, startBlock int
 		fmt.Println("Started historical search goroutine")
 		// Go routine purpose: record the latest block and search back in time to the start block until all historical redeem events are recorded.
 
-		// To-Do: Add load & save functionality so that this doesn't need to be repeated every time. This can take a long time, a delay >1s may also be necessary.
+		// Get the current block number
+		latestBlock, noLatestBlock := ethereum_client.BlockNumber(ctx) // XXX: THis will block forever
+		if noLatestBlock != nil {
+			panic(noLatestBlock)
+		}
+		// Find all redeem events from deployblock to latest block.
+		FetchHistoricalRedeems(nft_tracker.RpcAddress, contractAddress, startBlock, int(latestBlock))
 
 		for {
 			select {
@@ -104,7 +88,7 @@ func (nft_tracker *Tracker) StartTracking(contractAddress string, startBlock int
 				fmt.Println("Received quit signal, stopping...")
 				return // Exit the goroutine
 			default:
-				// Fetch validator passes from start block to latest block (at the time of subscription)
+				// Fetch validator passes from start block to latest block (at the time of subscription) MUMBO
 				ValidatorList, err := FetchRedeemEventsRPC(nft_tracker.RpcAddress, contractAddress, nextStartBlock, nextStartBlock+2) // Returns validator pass list based on redeem events in the block range.
 				if err != nil {
 					panic(err)
@@ -147,10 +131,26 @@ func (nft_tracker *Tracker) Stop() {
 // Call (preferably in a go routine) ethereum RPC many times over a long period to fill in the validator list with all historical redeems.
 // This function is only useful if there is a limit on block range per rpc request.
 func FetchHistoricalRedeems(rpcSource string, contractAddress string, fromBlock int, toBlock int) ([]Validator_RedeemEvent, error) {
+	RedeemList := []Validator_RedeemEvent{}
+
 	maxBlockSearch := 3 // Number of blocks to increment by at a time.
 	//for currentStartBlock := range(fromBlock, toBlock)
 	fmt.Println(maxBlockSearch)
-	return nil, nil
+	for currentBlock := fromBlock; currentBlock <= toBlock; currentBlock += maxBlockSearch + 1 {
+		// Search through all blocks incrementing by maxBlockSearch.
+		ValidatorList, err := FetchRedeemEventsRPC(rpcSource, contractAddress, currentBlock, currentBlock+maxBlockSearch)
+		if err != nil {
+			return nil, err
+		}
+		if len(ValidatorList) > 0 {
+			for vpass := range ValidatorList {
+				fmt.Println(ValidatorList[vpass].validatorAddress)
+				RedeemList = append(RedeemList, ValidatorList[vpass])
+			}
+		}
+
+	}
+	return RedeemList, nil
 }
 
 // Fetch a full list of Validator Passes from a smart contract address.
