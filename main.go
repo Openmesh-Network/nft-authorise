@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	vpauth "github.com/Openmesh-Network/nft-authorise/nft_auth"
+	vpauth "github.com/Openmesh-Network/nft-authorise/tracker"
 	ethereum "github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -21,12 +21,12 @@ func main() {
 	eventSignatureWithPrefix := "0x" + eventSignature
 
 	fmt.Printf("Event sig: %s\n", eventSignatureWithPrefix)
-	trackerobj := vpauth.NewTracker(rpcSource)
+	trackerobj := vpauth.NewTracker(rpcSource, false)
 	fmt.Println("Tracker object created.")
-	trackerobj.Start(contractAddress, deployBlock)
+	trackerobj.StartTracking(contractAddress, deployBlock, nil)
 	defer trackerobj.Stop()
 	fmt.Println("Tracker started, waiting for go routine.")
-	ValidatorList, err := vpauth.FetchValidatorPassesRPC(rpcSource, contractAddress, deployBlock, deployBlock+5)
+	ValidatorList, err := vpauth.FetchRedeemEventsRPC(rpcSource, contractAddress, deployBlock, deployBlock+5)
 	if err != nil {
 		panic(err)
 	}
