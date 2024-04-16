@@ -1,7 +1,7 @@
 # nft-authorise
-Authentication library to confirm public-key metadata associated with an NFT via a signing challenge.
+Authentication library to confirm public-key metadata associated with an NFT via a signing challenge. For the NFT mock contract which this library is based on,
 
-The aim with this library is to be a modular, portable SDK for soul-bound NFT authentication that can facilitate a handshake protocol whereby the receiver knows for certain that the send is the wallet owner of an NFT from the specified contract. This library is built to keep track of NFTs as an authentication mechanism, it is developed to provide a deterministic callback function for peers joining a CometBFT-based network.
+The aim with this library is to be a modular, portable SDK for NFT authentication that can facilitate a handshake protocol whereby the receiver knows for certain that the send is the wallet owner of an NFT from the specified contract. This library is built to keep track of NFTs as an authentication mechanism, it is developed to provide a deterministic callback function for peers joining a CometBFT-based network.
 
 The verify function works with the following parameters: Contract Address (NFT Token Mint), Claimed Wallet Address (containing NFT). And possibly a public key or CometBFT meta-data attached the NFT.
 
