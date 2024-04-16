@@ -9,7 +9,9 @@ The primary security concern with this authentication library is that you trust 
 
 To-Do:
 * Change string values in the Redeem Event struct to hex / binary to save space in memory and storage.
-* Ensure compatibility with CometBFT playback (historical redeems that are no longer valid should be replayable)
+* Ensure compatibility with CometBFT playback (historical redeems that are no longer valid should still be replayable).
+* Error handling and program resilience (for example, check what happens if we hit the rate limit).
+* Unlimited RPC requests, need to run an ethereum full node for developing this.
 
 ## Validator Pass in the Openmesh Network
 User needs to: 
