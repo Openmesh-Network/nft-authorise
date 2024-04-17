@@ -52,4 +52,5 @@ func askAboutRedeems(tracker *vpauth.Tracker) {
 	fmt.Println("Found third redeem: ", vpauth.Verify_join_callback("0x2175091590317500000000000000000000000000000000000000000000000000", tracker))
 
 	// vpauth.Verify_ValidatorRedeemEvent_callback()
+	fmt.Println("Length of validator list (excluding re-redeems):", len(tracker.ValidatorList))
 }
