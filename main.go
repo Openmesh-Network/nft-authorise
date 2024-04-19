@@ -22,17 +22,17 @@ func main() {
 
 	// Concatenate "0x" with the event signature
 	eventSignatureWithPrefix := "0x" + eventSignature
-	fmt.Printf("Event sig: %s\n", eventSignatureWithPrefix)
+	fmt.Printf("Tracking event with signature: %s\n", eventSignatureWithPrefix)
 
 	trackerobj := vpauth.NewTracker(rpcSource)
-	fmt.Println("Tracker object created.")
 	ctx := context.Background()
 	go func() {
 		trackerobj.StartTracking(ctx, contractAddress, deployBlock, 2*time.Minute, 20)
 		defer trackerobj.Stop()
 	}()
-	fmt.Println("Tracker started, waiting for go routine.")
+}
 
+/*
 	// Ask the tracker about what's happening on ethereum using cometbft callbacks every 2 minutes
 	ticker := time.NewTicker(2 * time.Minute)
 	for {
@@ -52,5 +52,5 @@ func askAboutRedeems(tracker *vpauth.Tracker) {
 	fmt.Println("Found third redeem: ", vpauth.Verify_join_callback("0x2175091590317500000000000000000000000000000000000000000000000000", tracker))
 
 	// vpauth.Verify_ValidatorRedeemEvent_callback()
-	fmt.Println("Length of validator list (excluding re-redeems):", len(tracker.ValidatorList))
-}
+	fmt.Println("Length of validator list (including re-redeems):", len(tracker.ValidatorList))
+*/

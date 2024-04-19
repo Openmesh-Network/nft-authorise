@@ -15,11 +15,10 @@ Transaction callback - set this (cometBftAddress & tokenId) voting power to 1 fo
 Verify callback - check this (CometBft address & tokenId) is redeemed under the new tokenId.
 */
 
-// Consideration: Should this callback even need a tokenId as an input?
-// Confirms a cbft address' existence in the Validator Pass redeem events. Is used by CometBFT ABCI before the program tries to issue a join tx.
-func Verify_join_callback(cbft_address string, trackerIns *Tracker) (determination bool) {
+// CometBFT callback without requiring tokenId, to determine validity of cometbft address in terms of existence of an on-chain redeem event.
+func VerifyMembershipOfAddress(cometBftAddress string, trackerIns *Tracker) (determination bool) {
 	for pass := range trackerIns.ValidatorList {
-		if trackerIns.ValidatorList[pass].validatorAddress == cbft_address {
+		if trackerIns.ValidatorList[pass].validatorAddress == cometBftAddress {
 			// Add this tokenId to the join tx. This callback verifies that you have redeemed correctly.
 			// Could return token id here if we need to.
 			return true
@@ -28,10 +27,11 @@ func Verify_join_callback(cbft_address string, trackerIns *Tracker) (determinati
 	return false
 }
 
-func Verify_ValidatorRedeemEvent_callback(cbft_address string, tokenId string, trackerIns *Tracker) (determination bool) {
+// CometBFT callback to determine validity of cometbft address in terms of existence of an on-chain redeem event.
+func VerifyValidatorAddress(cometBftAddress string, tokenId string, trackerIns *Tracker) (determination bool) {
 	for pass := range trackerIns.ValidatorList {
 		if trackerIns.ValidatorList[pass].tokenId == tokenId {
-			if trackerIns.ValidatorList[pass].validatorAddress == cbft_address {
+			if trackerIns.ValidatorList[pass].validatorAddress == cometBftAddress {
 				// Add this tokenId to the join tx. This callback verifies that you have redeemed correctly.
 				return true
 			}
@@ -73,17 +73,18 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, contractAddress s
 	if noLatestBlock != nil {
 		panic(noLatestBlock)
 	}
-	nft_tracker.FetchHistoricalRedeems(nft_tracker.RpcAddress, contractAddress, startBlock, int(latestBlock))
+	list, err := nft_tracker.FetchHistoricalRedeems(nft_tracker.RpcAddress, contractAddress, startBlock, int(latestBlock))
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Found", len(list), "redeem events in historical search")
 	latestCheckedBlock := int(latestBlock)
 
 	ticker := time.NewTicker(interval)
 	for {
 		select {
 		case <-nft_tracker.quit:
-			fmt.Println("Received quit signal, stopping...")
+			fmt.Println("Received quit signal, stopping tracker")
 			return // Exit the goroutine
 		case <-ticker.C:
 			// Subscribe to event stream and update accordingly
@@ -91,9 +92,10 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, contractAddress s
 			if noLatestBlock != nil {
 				panic(noLatestBlock)
 			}
-			if int(latestBlock)-confirmations > latestCheckedBlock {
+			elgibleBlock := int(latestBlock) - confirmations // Block eligible to be searched based on confirmation parameter
+			if elgibleBlock > latestCheckedBlock {
 				// Find all redeem events from deployblock to latest block.
-				nft_tracker.FetchHistoricalRedeems(nft_tracker.RpcAddress, contractAddress, latestCheckedBlock, int(latestBlock))
+				nft_tracker.FetchHistoricalRedeems(nft_tracker.RpcAddress, contractAddress, latestCheckedBlock, elgibleBlock)
 				if err != nil {
 					panic(err)
 				}
@@ -163,19 +165,16 @@ func FetchRedeemEventsRPC(rpcSource string, contractAddress string, fromBlock in
 
 	// fmt.Printf("Searching for redeem event logs in blocks %d to %d\n", fromBlock, toBlock)
 	response := make([]RedeemEventRpc, 1)
+	// To-Do: Handle responses that are error messages, for example if the RPC is down.
 	newerr := ethereum_client.Client().Call(&response, "eth_getLogs", RpcArguments)
 	if newerr != nil {
 		panic(newerr)
 	}
 
-	// Check that the response returned
-
 	// response handling logic
 	if len(response) > 0 {
 		fmt.Println(response[0].Data)
 		redeemEventsInRange = append(redeemEventsInRange, *NewValidatorRedeemEvent(response[0].Topics[1], response[0].Data))
-	} else {
-		//fmt.Println("No response to rpc.")
 	}
 
 	return redeemEventsInRange, nil

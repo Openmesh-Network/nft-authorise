@@ -27,6 +27,8 @@ type RedeemEventRpc struct {
 	Removed          bool     `json:"removed"`
 }
 
+// REDUNDANT FUNCTION
+// Not used, no purpose unless you need to implement re-redeem functionality for you validator pass.
 func UpdateRedeemEvent(newRedeem Validator_RedeemEvent, redeemList []Validator_RedeemEvent) (updatedList []Validator_RedeemEvent) {
 	for redeem := range redeemList { // For each redeem if for the same tokenId
 		if redeemList[redeem].tokenId == newRedeem.tokenId {
