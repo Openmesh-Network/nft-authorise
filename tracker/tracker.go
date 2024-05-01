@@ -1,4 +1,4 @@
-package nft_auth
+package validatorpass_tracker
 
 import (
 	"context"
@@ -10,12 +10,8 @@ import (
 
 // COMETBFT CALLBACKS
 
-/*
-Transaction callback - set this (cometBftAddress & tokenId) voting power to 1 for block proposer if their address is redeemed.
-Verify callback - check this (CometBft address & tokenId) is redeemed under the new tokenId.
-*/
-
 // CometBFT callback without requiring tokenId, to determine validity of cometbft address in terms of existence of an on-chain redeem event.
+// This function should be called before the validator tries to initiate a join transaction.
 func VerifyMembershipOfAddress(cometBftAddress string, trackerIns *Tracker) (determination bool) {
 	for pass := range trackerIns.ValidatorList {
 		if trackerIns.ValidatorList[pass].validatorAddress == cometBftAddress {
@@ -43,24 +39,27 @@ func VerifyValidatorAddress(cometBftAddress string, tokenId string, trackerIns *
 // The tracker will keep a list of validator pass redeem events.
 type Tracker struct {
 	// Abstracts the source of Ethereum RPC to be used for NFT tracking. (Support for external or internal nodes)
-	RpcAddress    string
-	ValidatorList []Validator_RedeemEvent
-	quit          chan struct{}
+	RpcAddress     string
+	rpcSearchLimit int
+	trackedEvent   Rpc_RedeemEvent
+	ValidatorList  []Validator_RedeemEvent
+	quit           chan struct{}
 }
 
-// Create a new tracker object to track Validator Passes.
-func NewTracker(rpcSourceAddress string) *Tracker {
+// Create a new tracker object to track an event.
+func NewTracker(rpcSourceAddress string, rpcSearchLimit int, trackedEvent Rpc_RedeemEvent) *Tracker {
 	return &Tracker{
-		RpcAddress:    rpcSourceAddress,
-		ValidatorList: []Validator_RedeemEvent{},
-		quit:          make(chan struct{}),
+		RpcAddress:     rpcSourceAddress,
+		rpcSearchLimit: rpcSearchLimit,
+		trackedEvent:   trackedEvent,
+		ValidatorList:  []Validator_RedeemEvent{},
+		quit:           make(chan struct{}),
 	}
 }
 
 // Start tracking redeem events from a Validator Pass smart contract address, you should be able to deterministically call validateNFTMembership()
 // for peer validation in a CometBFT callback.
-func (nft_tracker *Tracker) StartTracking(ctx context.Context, contractAddress string, startBlock int, interval time.Duration, confirmations int) { // To-Do: Return an error channel
-
+func (nft_tracker *Tracker) StartTracking(ctx context.Context, interval time.Duration, confirmations int) (errChannel chan error) { // To-Do: Return an error channel
 	// Initialise the ethereum RPC client
 	ethereum_client, err := ethclient.Dial(nft_tracker.RpcAddress)
 	if err != nil {
@@ -71,9 +70,9 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, contractAddress s
 	// Get the current block number
 	latestBlock, noLatestBlock := ethereum_client.BlockNumber(ctx)
 	if noLatestBlock != nil {
-		panic(noLatestBlock)
+		errChannel <- noLatestBlock
 	}
-	list, err := nft_tracker.FetchHistoricalRedeems(nft_tracker.RpcAddress, contractAddress, startBlock, int(latestBlock))
+	list, err := nft_tracker.FetchHistoricalRedeems(nft_tracker.RpcAddress, nft_tracker.trackedEvent.contractAddress, nft_tracker.trackedEvent.deployBlock, int(latestBlock))
 	if err != nil {
 		panic(err)
 	}
@@ -95,10 +94,7 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, contractAddress s
 			elgibleBlock := int(latestBlock) - confirmations // Block eligible to be searched based on confirmation parameter
 			if elgibleBlock > latestCheckedBlock {
 				// Find all redeem events from deployblock to latest block.
-				nft_tracker.FetchHistoricalRedeems(nft_tracker.RpcAddress, contractAddress, latestCheckedBlock, elgibleBlock)
-				if err != nil {
-					panic(err)
-				}
+				nft_tracker.FetchHistoricalRedeems(nft_tracker.RpcAddress, nft_tracker.trackedEvent.contractAddress, latestCheckedBlock, elgibleBlock)
 				latestCheckedBlock = int(latestBlock)
 			} else {
 				fmt.Println("No new blocks searched since interval. Latest block is:", latestBlock, "  while last checked block was: ", latestCheckedBlock)
@@ -108,6 +104,7 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, contractAddress s
 
 }
 
+// Deferred indefinitely by infinite loop.
 func (nft_tracker *Tracker) Stop() {
 	// Stops the go routine in Start()
 	close(nft_tracker.quit)
@@ -125,7 +122,7 @@ func (nft_tracker *Tracker) FetchHistoricalRedeems(rpcSource string, contractAdd
 	fmt.Println(maxBlockSearch)
 	for currentBlock := fromBlock; currentBlock <= toBlock; currentBlock += maxBlockSearch + 1 {
 		// Search through all blocks incrementing by maxBlockSearch.
-		ValidatorList, err := FetchRedeemEventsRPC(rpcSource, contractAddress, currentBlock, currentBlock+maxBlockSearch)
+		ValidatorList, err := FetchRedeemEventsRPC(rpcSource, nft_tracker.trackedEvent, currentBlock, currentBlock+maxBlockSearch)
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +140,7 @@ func (nft_tracker *Tracker) FetchHistoricalRedeems(rpcSource string, contractAdd
 }
 
 // Fetch a full list of Validator Passes from a smart contract address.
-func FetchRedeemEventsRPC(rpcSource string, contractAddress string, fromBlock int, toBlock int) ([]Validator_RedeemEvent, error) {
+func FetchRedeemEventsRPC(rpcSource string, trackedEvent Rpc_RedeemEvent, fromBlock int, toBlock int) ([]Validator_RedeemEvent, error) {
 	var redeemEventsInRange []Validator_RedeemEvent
 
 	// Initialise an ethereum RPC client
@@ -157,9 +154,9 @@ func FetchRedeemEventsRPC(rpcSource string, contractAddress string, fromBlock in
 	RpcArguments := map[string]interface{}{
 		"fromBlock": string(fmt.Sprintf("%d", fromBlock)), // fromBlock,
 		"toBlock":   string(fmt.Sprintf("%d", toBlock)),   // toBlock,
-		"address":   contractAddress,
+		"address":   trackedEvent.contractAddress,
 		"topics": []string{
-			"0x4fc9c25b46f7854a495f8830e3d532a48cd64b4e4e3f6038557fe5669885bbe6", // Keccak256 hash, is the event signature of: Redeemed(uint256,bytes32)
+			trackedEvent.eventSignature, // Keccak256 hash, is the event signature of: Redeemed(uint256,bytes32)
 		},
 	}
 
@@ -174,13 +171,13 @@ func FetchRedeemEventsRPC(rpcSource string, contractAddress string, fromBlock in
 	// response handling logic
 	if len(response) > 0 {
 		fmt.Println(response[0].Data)
-		redeemEventsInRange = append(redeemEventsInRange, *NewValidatorRedeemEvent(response[0].Topics[1], response[0].Data))
+		redeemEventsInRange = append(redeemEventsInRange, *NewValidatorRedeemEvent(response[0].Topics[1], response[0].Data)) // Hard coded interaction with JSON response.
 	}
 
 	return redeemEventsInRange, nil
 }
 
-// Test function
+// Debugging function for printing the progress of the search
 func ProgressUpdate(startBlock int, currentBlock int, toBlock int, lastUpdate *int) {
 	currentBlockPosition := currentBlock - startBlock
 	destinationBlockPosition := toBlock - startBlock

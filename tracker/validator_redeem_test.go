@@ -1,1 +1,3 @@
-package nft_auth
+package validatorpass_tracker
+
+// Basic tests for the functions in these objects

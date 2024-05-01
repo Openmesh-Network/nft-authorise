@@ -1,4 +1,4 @@
-package nft_auth
+package validatorpass_tracker
 
 import (
 	"context"
@@ -23,9 +23,9 @@ func TestNftTracker(t *testing.T) {
 	eventSignatureWithPrefix := "0x" + eventSignature
 
 	t.Log("Event sig:", eventSignatureWithPrefix)
-	trackerobj := NewTracker(rpcSource)
+	trackerobj := NewTracker(rpcSource, 4, NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock))
 	ctx := context.Background()
-	trackerobj.StartTracking(ctx, contractAddress, deployBlock, 2*time.Minute, 20)
+	trackerobj.StartTracking(ctx, 2*time.Minute, 20)
 }
 func TestRPCfetch(t *testing.T) {
 	// Testing reveals that response is empty if there are no redeem events found.
@@ -34,7 +34,7 @@ func TestRPCfetch(t *testing.T) {
 	// One Validator pass object found in this range. (Next check for a double redeem within 3 blocks.)
 	FindVPassinRange(5618693, 5618695, t)
 
-	trackerobj := NewTracker(rpcSource)
+	trackerobj := NewTracker(rpcSource, 4, NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock))
 	// Test longer range with historical fetch loop.
 	trackerobj.FindVPassHistorical(5618685, 5618705, t)
 
@@ -43,16 +43,24 @@ func TestRPCfetch(t *testing.T) {
 
 func TestCallbackfuncs(t *testing.T) {
 	ctx := context.Background()
-	trackerobj := NewTracker(rpcSource)
-	trackerobj.StartTracking(ctx, "0x8D64aB58a17dA7d8788367549c513386f09a0A70", 5517796, 2*time.Minute, 20)
+	trackerobj := NewTracker(rpcSource, 4, NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock))
+	trackerobj.StartTracking(ctx, 2*time.Minute, 20)
 
 	redeemed := VerifyMembershipOfAddress("61a83a39c806449ddc66feb6c86a1994456a8c8b", trackerobj)
 	t.Log("Tracked a successful redeem for cometBFT address: ", redeemed)
 }
 
-// Helpers
+// Test to implement and debug connection resilience, the tracker should still search all blocks
+func TestConnectionIssues(t *testing.T) {
+	trackerobj := NewTracker(rpcSource, 4, NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock))
+	trackerobj.StartTracking(context.Background(), 2*time.Minute, 20)
+
+}
+
+// /////////////////// Helper functions /////////////////////
 func FindVPassinRange(toblock int, fromblock int, t *testing.T) {
-	list, err := FetchRedeemEventsRPC(rpcSource, contractAddress, toblock, fromblock)
+	redeemed := NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock)
+	list, err := FetchRedeemEventsRPC(rpcSource, redeemed, toblock, fromblock)
 	if err != nil {
 		panic(err)
 	}

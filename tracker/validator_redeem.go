@@ -1,10 +1,16 @@
-package nft_auth
+package validatorpass_tracker
+
+import (
+	"encoding/hex"
+
+	"github.com/ethereum/go-ethereum/crypto"
+)
 
 // VALIDATOR REDEEM EVENTS
 
 type Validator_RedeemEvent struct {
 	tokenId             string // NFT token ID
-	validatorAddress    string // CometBFT validator address eg. cometvaloper1abc123def456ghi789jkl123mno456pqr789stu
+	validatorAddress    string // CometBFT validator address
 	redeemedBlockHeight int    // Block height at which the validator pass was redeemed
 }
 
@@ -12,6 +18,25 @@ func NewValidatorRedeemEvent(tokenId string, validatorAddress string) *Validator
 	return &Validator_RedeemEvent{
 		tokenId:          tokenId,
 		validatorAddress: validatorAddress,
+	}
+}
+
+// RPC Redeem events that we are interested in and what contract they are associated to.
+type Rpc_RedeemEvent struct {
+	eventSignature  string
+	contractAddress string
+	deployBlock     int
+}
+
+// Function for initialising the ethereum events you are interested in tracking, requires event, contract address and deploy block.
+// Pass the event in format: function(datatype1,datatype2)
+// eg. "Redeemed(uint256,bytes32)"
+// This function mainly serves to create the input required for rpc interaction or to create a new tracker object.
+func NewRedeemEvent(event string, contractAddress string, deployBlock int) Rpc_RedeemEvent {
+	return Rpc_RedeemEvent{
+		eventSignature:  GetEventSignature(event),
+		contractAddress: contractAddress,
+		deployBlock:     deployBlock,
 	}
 }
 
@@ -25,6 +50,14 @@ type RedeemEventRpc struct {
 	BlockHash        string   `json:"blockHash"`
 	LogIndex         string   `json:"logIndex"`
 	Removed          bool     `json:"removed"`
+}
+
+// Get the event signature of an event, eg. "Redeemed(uint256,bytes32)"
+func GetEventSignature(eventString string) string {
+	// Compute Keccak256 hash of the event signature
+	hash := crypto.Keccak256([]byte(eventString))
+	eventSignature := hex.EncodeToString(hash)
+	return eventSignature
 }
 
 // REDUNDANT FUNCTION
