@@ -2,6 +2,8 @@ package validatorpass_tracker
 
 import (
 	"encoding/hex"
+	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -21,9 +23,13 @@ func NewValidatorRedeemEvent(tokenId string, validatorAddress string) *Validator
 	}
 }
 
+func (vRedeem *Validator_RedeemEvent) ToString() string {
+	return fmt.Sprintf("TokenId: %s, Validator Address: %s, Redeemed@Height: %d", vRedeem.tokenId, vRedeem.validatorAddress, vRedeem.redeemedBlockHeight)
+}
+
 // RPC Redeem events that we are interested in and what contract they are associated to.
 type Rpc_RedeemEvent struct {
-	eventSignature  string
+	EventSignature  string
 	contractAddress string
 	deployBlock     int
 }
@@ -34,7 +40,7 @@ type Rpc_RedeemEvent struct {
 // This function mainly serves to create the input required for rpc interaction or to create a new tracker object.
 func NewRedeemEvent(event string, contractAddress string, deployBlock int) Rpc_RedeemEvent {
 	return Rpc_RedeemEvent{
-		eventSignature:  GetEventSignature(event),
+		EventSignature:  GetEventSignature(event),
 		contractAddress: contractAddress,
 		deployBlock:     deployBlock,
 	}
@@ -53,11 +59,19 @@ type RedeemEventRpc struct {
 }
 
 // Get the event signature of an event, eg. "Redeemed(uint256,bytes32)"
+// If passed a string starting with 0x, it will assume this is the event signature and simply reflect it.
 func GetEventSignature(eventString string) string {
-	// Compute Keccak256 hash of the event signature
-	hash := crypto.Keccak256([]byte(eventString))
-	eventSignature := hex.EncodeToString(hash)
-	return eventSignature
+	if strings.HasPrefix(eventString, "0x") {
+		return eventString
+	} else {
+		// Compute Keccak256 hash of the event signature
+		hash := crypto.Keccak256([]byte(eventString))
+		EventSignature := hex.EncodeToString(hash)
+		// Prefix needed for interpretation in RPC
+		EventSignatureWithPrefix := "0x" + EventSignature
+		return EventSignatureWithPrefix
+	}
+
 }
 
 // REDUNDANT FUNCTION

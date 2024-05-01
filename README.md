@@ -8,6 +8,8 @@ The verify function is a callback that checks the tracker's list of validator re
 ## Optimisations
 Currently, the tracker keeps all redeem events an array in memory. This serves fine with our scope 1-10K validators, however if the network scales further it could be ideal to use a keystore to save resources. 
 
+If the library grows a lot in the future, it may be necessary to split rpc-related functions into a separate package within this module that is imported by the tracker.
+
 ## Security Improvements
 The primary security concern with this authentication library is that you trust the Ethereum RPC source implicitly, so it is recommended to run an ethereum node (lite or full is fine) on the local machine to use for these requests. 
 

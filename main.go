@@ -11,23 +11,23 @@ import (
 func main() {
 	// RPC constants
 	const contractAddress string = "0x8D64aB58a17dA7d8788367549c513386f09a0A70"
-	const rpcSource = "https://rpc.ankr.com/eth_sepolia"
+	//const rpcSource = "https://rpc.ankr.com/eth_sepolia"
+	const rpcSource = "https://sepolia.ethereum.validationcloud.io/v1/D1dWZjPR8cvUj3UQ5_wuCRBes_dGzktpO4MkCucjEgk"
 	const deployBlock = 5617796 // 0x55bc06 This is the block at which the validator pass contact was deployed on-chain.
 
 	// Compute Keccak256 hash of the event signature
 	//hash := ethereum.Keccak256([]byte("Redeemed(uint256,bytes32)"))
-	//eventSignature := hex.EncodeToString(hash)
-	eventSignature := vpauth.GetEventSignature("Redeemed(uint256,bytes32)")
+	//EventSignature := hex.EncodeToString(hash)
+	EventSignature := vpauth.GetEventSignature("Redeemed(uint256,bytes32)")
 
 	// Concatenate "0x" with the event signature
-	eventSignatureWithPrefix := "0x" + eventSignature
-	fmt.Printf("Tracking event with signature: %s\n", eventSignatureWithPrefix)
+	fmt.Printf("Tracking event with signature: %s\n", EventSignature)
 
-	trackerobj := vpauth.NewTracker(rpcSource, 4, vpauth.NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock))
+	trackerobj := vpauth.NewTracker(rpcSource, 0, vpauth.NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock))
+	fmt.Println(trackerobj.TrackedEvent.EventSignature)
 	ctx := context.Background()
 
 	trackerobj.StartTracking(ctx, 2*time.Minute, 20)
-	defer trackerobj.Stop()
 }
 
 /*
