@@ -3,6 +3,7 @@ package validatorpass_tracker
 import (
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -13,13 +14,22 @@ import (
 type Validator_RedeemEvent struct {
 	tokenId             string // NFT token ID
 	validatorAddress    string // CometBFT validator address
-	redeemedBlockHeight int    // Block height at which the validator pass was redeemed
+	redeemedBlockHeight int64  // Block height at which the validator pass was redeemed
 }
 
-func NewValidatorRedeemEvent(tokenId string, validatorAddress string) *Validator_RedeemEvent {
+// Records validator pass redeem events including the redeemed validator address and the the block height at which it was redeemed.
+// All parameters are in form of "0x0000000000000000000000000000000000000000000000000000000000000001" as returned by RPC.
+// redeemedBlockHeight assumes a string response from JSON RPC in form "0xabc".
+func NewValidatorRedeemEvent(tokenId string, validatorAddress string, redeemedBlockHeight string) *Validator_RedeemEvent {
+	heightNumerical, err := strconv.ParseInt(redeemedBlockHeight, 0, 0)
+	if err != nil {
+		fmt.Println("Unable to convert blockNumber response to integer: ", redeemedBlockHeight, err)
+		heightNumerical = 0
+	}
 	return &Validator_RedeemEvent{
-		tokenId:          tokenId,
-		validatorAddress: validatorAddress,
+		tokenId:             tokenId,
+		validatorAddress:    validatorAddress,
+		redeemedBlockHeight: heightNumerical,
 	}
 }
 

@@ -22,6 +22,7 @@ func VerifyMembershipOfAddress(cometBftAddress string, trackerIns *Tracker) (det
 }
 
 // CometBFT callback to determine validity of cometbft address in terms of existence of an on-chain redeem event.
+
 func VerifyValidatorAddress(cometBftAddress string, tokenId string, trackerIns *Tracker) (determination bool) {
 	EventsForTokenId := []Validator_RedeemEvent{}
 	for pass := range trackerIns.ValidatorList {
@@ -31,7 +32,7 @@ func VerifyValidatorAddress(cometBftAddress string, tokenId string, trackerIns *
 			}
 		}
 	}
-	searchHeight := 0
+	var searchHeight int64 = 0
 	latestEvent := Validator_RedeemEvent{}
 	for pass := range EventsForTokenId {
 		if EventsForTokenId[pass].redeemedBlockHeight > searchHeight {
@@ -80,18 +81,17 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, interval time.Dur
 	if noLatestBlock != nil {
 		errChannel <- noLatestBlock
 	}
+	startTime := time.Now()
 	// Do a historical search of all redeem events from deployBlock to latestBlock
 	list, err := nft_tracker.FindRedeems(nft_tracker.TrackedEvent.deployBlock, int(latestBlock))
 	if err != nil {
 		errChannel <- noLatestBlock
 	}
-	fmt.Println("Found", len(list), "redeem events in historical search")
+	fmt.Println("Found", list, "redeem events in historical search, took time:", time.Since(startTime))
 	latestCheckedBlock := int(latestBlock)
 
 	ticker := time.NewTicker(interval)
 	for range ticker.C {
-
-		// Subscribe to event stream and update accordingly
 		latestBlock, noLatestBlock := ethereum_client.BlockNumber(ctx)
 		if noLatestBlock != nil {
 			panic(noLatestBlock) // Need to investigate potential errors that could be surfaced here.
@@ -104,7 +104,6 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, interval time.Dur
 		} else {
 			fmt.Println("No new blocks searched since interval. Latest block is:", latestBlock, "  while last checked block was: ", latestCheckedBlock)
 		}
-
 	}
 	return errChannel
 }
@@ -113,20 +112,26 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, interval time.Dur
 
 // Used to make many ethereum remote procedure calls over time to handle limits from rpc provider.
 // Setting a maxBlockSearch of 0 will assume that you have unlimited RPC access, eg. lite or full node locally hosted.
-func (nft_tracker *Tracker) FindRedeems(fromBlock int, toBlock int) ([]Validator_RedeemEvent, error) {
-	RedeemsFound := []Validator_RedeemEvent{}
+func (nft_tracker *Tracker) FindRedeems(fromBlock int, toBlock int) (int, error) {
+	RedeemsFound := 0
 	lastUpdate := 0
 	if nft_tracker.rpcSearchLimit == 0 { // Unlimited RPC, no need to search incrementally.
-		nft_tracker.FetchAppendRedeems(nft_tracker.TrackedEvent.deployBlock, toBlock)
+		list, err := nft_tracker.FetchAppendRedeems(nft_tracker.TrackedEvent.deployBlock, toBlock)
+		if err != nil {
+			return 0, err
+		}
+		RedeemsFound = len(list)
 	} else {
 		for currentBlock := fromBlock; currentBlock <= toBlock; currentBlock += nft_tracker.rpcSearchLimit + 1 {
 			// Search through all blocks incrementing by rpcSearchLimit.
-			nft_tracker.FetchAppendRedeems(currentBlock, (currentBlock + nft_tracker.rpcSearchLimit))
+			list, err := nft_tracker.FetchAppendRedeems(currentBlock, (currentBlock + nft_tracker.rpcSearchLimit))
+			if err != nil {
+				return 0, err
+			}
+			RedeemsFound += len(list)
 			ProgressUpdate(fromBlock, currentBlock, toBlock, &lastUpdate)
-
 		}
 	}
-
 	return RedeemsFound, nil
 }
 
@@ -138,8 +143,7 @@ func (nft_tracker *Tracker) FetchAppendRedeems(fromBlock int, toBlock int) ([]Va
 	}
 	if len(ValidatorList) > 0 {
 		for vpass := range ValidatorList {
-			fmt.Println(ValidatorList[vpass].validatorAddress) // For debugging
-
+			fmt.Println(ValidatorList[vpass].ToString())
 			RedeemsFound = append(RedeemsFound, ValidatorList[vpass])
 			nft_tracker.ValidatorList = append(nft_tracker.ValidatorList, ValidatorList[vpass])
 		}
@@ -159,14 +163,13 @@ func FetchRedeemEventsRPC(rpcSource string, TrackedEvent Rpc_RedeemEvent, fromBl
 		return nil, err
 	}
 	defer ethereum_client.Close()
-
 	// Build the RPC arguments for eth_getLogs
 	RpcArguments := map[string]interface{}{
-		"fromBlock": string(fmt.Sprintf("%d", fromBlock)), // fromBlock,
-		"toBlock":   string(fmt.Sprintf("%d", toBlock)),   // toBlock,
+		"fromBlock": string(fmt.Sprintf("0x%x", fromBlock)), // fromBlock,
+		"toBlock":   string(fmt.Sprintf("0x%x", toBlock)),   // toBlock,
 		"address":   TrackedEvent.contractAddress,
 		"topics": []string{
-			TrackedEvent.EventSignature, // Keccak256 hash, is the event signature of: Redeemed(uint256,bytes32)
+			TrackedEvent.EventSignature,
 		},
 	}
 
@@ -177,10 +180,11 @@ func FetchRedeemEventsRPC(rpcSource string, TrackedEvent Rpc_RedeemEvent, fromBl
 	if getLogsFailed != nil {
 		panic(getLogsFailed)
 	}
-
 	// response handling logic
 	if len(response) > 0 {
-		redeemEventsInRange = append(redeemEventsInRange, *NewValidatorRedeemEvent(response[0].Topics[1], response[0].Data)) // Hard coded interaction with JSON response.
+		for val := range response {
+			redeemEventsInRange = append(redeemEventsInRange, *NewValidatorRedeemEvent(response[val].Topics[1], response[val].Data, response[val].BlockNumber))
+		}
 	}
 
 	return redeemEventsInRange, nil
