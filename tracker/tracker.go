@@ -21,6 +21,26 @@ func VerifyMembershipOfAddress(cometBftAddress string, trackerIns *Tracker) (det
 	return false
 }
 
+// Mapped search for cometBFT callback to account for re-redeems.
+func VerifyAddress(cometBftAddress string, trackerIns *Tracker) bool {
+	for address, redeems := range trackerIns.addressMap {
+		fmt.Println(address) // Debug
+
+		// To-Do: Add logic for re-redeems
+		if address == cometBftAddress {
+			var searchHeight int64 = 0
+			for redeem := range redeems {
+				if redeems[redeem].redeemedBlockHeight > searchHeight {
+					searchHeight = redeems[redeem].redeemedBlockHeight
+				}
+			}
+
+			return true
+		}
+	}
+	return false
+}
+
 // CometBFT callback to determine validity of cometbft address in terms of existence of an on-chain redeem event.
 
 func VerifyValidatorAddress(cometBftAddress string, tokenId string, trackerIns *Tracker) (determination bool) {
@@ -54,6 +74,8 @@ type Tracker struct {
 	TrackedEvent      Rpc_RedeemEvent
 	ValidatorList     []Validator_RedeemEvent
 	lastTrackerHeight int
+	tokenIdMap        map[string][]Validator_RedeemEvent
+	addressMap        map[string][]Validator_RedeemEvent
 }
 
 // Create a new tracker object to track an event.
@@ -63,6 +85,8 @@ func NewTracker(rpcSourceAddress string, rpcSearchLimit int, TrackedEvent Rpc_Re
 		rpcSearchLimit:    rpcSearchLimit,
 		TrackedEvent:      TrackedEvent,
 		ValidatorList:     []Validator_RedeemEvent{},
+		tokenIdMap:        map[string][]Validator_RedeemEvent{},
+		addressMap:        map[string][]Validator_RedeemEvent{},
 		lastTrackerHeight: 0,
 	}
 }
@@ -83,7 +107,7 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, interval time.Dur
 	}
 	startTime := time.Now()
 	// Do a historical search of all redeem events from deployBlock to latestBlock
-	list, err := nft_tracker.FindRedeems(nft_tracker.TrackedEvent.deployBlock, int(latestBlock))
+	list, err := nft_tracker.FindRedeems(nft_tracker.TrackedEvent.deployBlock, int(latestBlock)-confirmations)
 	if err != nil {
 		errChannel <- noLatestBlock
 	}
@@ -92,6 +116,7 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, interval time.Dur
 
 	ticker := time.NewTicker(interval)
 	for range ticker.C {
+		fmt.Println("Checking for new blocks")
 		latestBlock, noLatestBlock := ethereum_client.BlockNumber(ctx)
 		if noLatestBlock != nil {
 			panic(noLatestBlock) // Need to investigate potential errors that could be surfaced here.
@@ -146,11 +171,39 @@ func (nft_tracker *Tracker) FetchAppendRedeems(fromBlock int, toBlock int) ([]Va
 			fmt.Println(ValidatorList[vpass].ToString())
 			RedeemsFound = append(RedeemsFound, ValidatorList[vpass])
 			nft_tracker.ValidatorList = append(nft_tracker.ValidatorList, ValidatorList[vpass])
+
+			// Add to corresponding maps for tokenid and validator address
+			nft_tracker.AddToTokenIdMap(ValidatorList[vpass])
+			nft_tracker.AddToAddressMap(ValidatorList[vpass])
 		}
 		// Update nft_tracker.lastTrackerHeight
 		nft_tracker.lastTrackerHeight = toBlock
 	}
 	return RedeemsFound, nil
+}
+
+func (nft_tracker *Tracker) AddToTokenIdMap(validatorRedeem Validator_RedeemEvent) {
+	currentRedeem, exists := nft_tracker.tokenIdMap[validatorRedeem.tokenId]
+	if !exists {
+		currentRedeem = []Validator_RedeemEvent{}
+		currentRedeem = append(currentRedeem, validatorRedeem)
+		nft_tracker.tokenIdMap[validatorRedeem.tokenId] = currentRedeem
+	} else {
+		currentRedeem = append(currentRedeem, validatorRedeem)
+		nft_tracker.tokenIdMap[validatorRedeem.tokenId] = currentRedeem
+	}
+}
+
+func (nft_tracker *Tracker) AddToAddressMap(validatorRedeem Validator_RedeemEvent) {
+	currentRedeem, exists := nft_tracker.addressMap[validatorRedeem.validatorAddress]
+	if !exists {
+		currentRedeem = []Validator_RedeemEvent{}
+		currentRedeem = append(currentRedeem, validatorRedeem)
+		nft_tracker.addressMap[validatorRedeem.validatorAddress] = currentRedeem
+	} else {
+		currentRedeem = append(currentRedeem, validatorRedeem)
+		nft_tracker.addressMap[validatorRedeem.validatorAddress] = currentRedeem
+	}
 }
 
 // Fetch a full list of Validator Passes from a smart contract address.
@@ -178,7 +231,7 @@ func FetchRedeemEventsRPC(rpcSource string, TrackedEvent Rpc_RedeemEvent, fromBl
 	// To-Do: Handle responses that are error messages, for example if the RPC is down.
 	getLogsFailed := ethereum_client.Client().Call(&response, "eth_getLogs", RpcArguments)
 	if getLogsFailed != nil {
-		panic(getLogsFailed)
+		return nil, getLogsFailed
 	}
 	// response handling logic
 	if len(response) > 0 {

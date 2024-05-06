@@ -40,7 +40,7 @@ func TestFindVPassRPC(t *testing.T) {
 	// One Validator pass object found in this range. (Next check for a double redeem within 3 blocks.)
 	FindVPassinRange(5618693, 5618750, t)
 
-	trackerobj := NewTracker(rpcSource, 4, NewRedeemEvent(redeemed, contractAddress, deployBlock))
+	trackerobj := NewTracker(rpcSource, 4, RedeemEvent)
 	// Test longer range with historical fetch loop.
 	trackerobj.FindVPassHistorical(5618685, 5618705, t)
 
@@ -49,10 +49,12 @@ func TestFindVPassRPC(t *testing.T) {
 
 func TestCallbackfuncs(t *testing.T) {
 	ctx := context.Background()
-	trackerobj := NewTracker(rpcSource, 4, RedeemEvent)
-	trackerobj.StartTracking(ctx, 2*time.Minute, 20)
-
-	redeemed := VerifyMembershipOfAddress("61a83a39c806449ddc66feb6c86a1994456a8c8b", trackerobj)
+	trackerobj := NewTracker(rpcSource, 4, NewRedeemEvent(redeemed, contractAddress, 5618691))
+	go func() {
+		trackerobj.StartTracking(ctx, 2*time.Minute, 20)
+	}()
+	time.Sleep(3 * time.Second)
+	redeemed := VerifyAddress("0x61a83a39c806449ddc66feb6c86a1994456a8c8b000000000000000000000000", trackerobj)
 	t.Log("Tracked a successful redeem for cometBFT address: ", redeemed)
 }
 
@@ -104,6 +106,12 @@ func TestUnlimitedBlockRange(t *testing.T) {
 	trackerobj.FindVPassHistorical(5618693, 5729623, t)
 
 	trackerobj.StartTracking(context.Background(), 2*time.Second, 20)
+}
+
+func TestAddToMap(t *testing.T) {
+	trackerobj := NewTracker(rpcSource, 4, NewRedeemEvent(redeemed, contractAddress, 5618691))
+	trackerobj.AddToAddressMap(*NewValidatorRedeemEvent("0x0000000000000000000000000000000000000000000000000000000000000001", "0x61a83a39c806449ddc66feb6c86a1994456a8c8b000000000000000000000000", "5618691"))
+	t.Log(trackerobj.addressMap["0x61a83a39c806449ddc66feb6c86a1994456a8c8b000000000000000000000000"][0].ToString())
 }
 
 // /////////////////// Helper functions /////////////////////

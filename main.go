@@ -16,7 +16,7 @@ func main() {
 
 	// Concatenate "0x" with the event signature
 
-	trackerobj := vpauth.NewTracker(rpcSource, 0, vpauth.NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock))
+	trackerobj := vpauth.NewTracker(rpcSource, 3000, vpauth.NewRedeemEvent("Redeemed(uint256,bytes32)", contractAddress, deployBlock))
 	fmt.Printf("Tracking event with signature: %s\n", trackerobj.TrackedEvent.EventSignature)
 	ctx := context.Background()
 

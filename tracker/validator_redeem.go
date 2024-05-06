@@ -11,7 +11,7 @@ import (
 
 // VALIDATOR REDEEM EVENTS
 
-type Validator_RedeemEvent struct {
+type Validator_RedeemEvent struct { // Optimisation: store strings as bytes[32] if memory is an issue
 	tokenId             string // NFT token ID
 	validatorAddress    string // CometBFT validator address
 	redeemedBlockHeight int64  // Block height at which the validator pass was redeemed
@@ -39,7 +39,7 @@ func (vRedeem *Validator_RedeemEvent) ToString() string {
 
 // RPC Redeem events that we are interested in and what contract they are associated to.
 type Rpc_RedeemEvent struct {
-	EventSignature  string
+	EventSignature  string // Redeemed(uint256,bytes32)
 	contractAddress string
 	deployBlock     int
 }
@@ -81,7 +81,6 @@ func GetEventSignature(eventString string) string {
 		EventSignatureWithPrefix := "0x" + EventSignature
 		return EventSignatureWithPrefix
 	}
-
 }
 
 // REDUNDANT FUNCTION
