@@ -78,7 +78,7 @@ type Tracker struct {
 	addressMap        map[string][]Validator_RedeemEvent
 }
 
-// Create a new tracker object to track an event.
+// Create a new tracker object to track an evenblt.
 func NewTracker(rpcSourceAddress string, rpcSearchLimit int, TrackedEvent Rpc_RedeemEvent) *Tracker {
 	return &Tracker{
 		RpcAddress:        rpcSourceAddress,
