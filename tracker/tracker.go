@@ -42,6 +42,7 @@ func VerifyAddress(cometBftAddress string, trackerIns *Tracker) bool {
 }
 
 // CometBFT callback to determine validity of cometbft address in terms of existence of an on-chain redeem event.
+
 func VerifyValidatorAddress(cometBftAddress string, tokenId string, trackerIns *Tracker) (determination bool) {
 	EventsForTokenId := []Validator_RedeemEvent{}
 	for pass := range trackerIns.ValidatorList {
@@ -72,7 +73,7 @@ type Tracker struct {
 	rpcSearchLimit    int
 	TrackedEvent      Rpc_RedeemEvent
 	ValidatorList     []Validator_RedeemEvent
-	lastTrackerHeight int
+	LastTrackerHeight int
 	tokenIdMap        map[string][]Validator_RedeemEvent
 	addressMap        map[string][]Validator_RedeemEvent
 }
@@ -86,7 +87,7 @@ func NewTracker(rpcSourceAddress string, rpcSearchLimit int, TrackedEvent Rpc_Re
 		ValidatorList:     []Validator_RedeemEvent{},
 		tokenIdMap:        map[string][]Validator_RedeemEvent{},
 		addressMap:        map[string][]Validator_RedeemEvent{},
-		lastTrackerHeight: 0, // Last checked block in execution chain.
+		LastTrackerHeight: 0,
 	}
 }
 
@@ -132,9 +133,6 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, interval time.Dur
 	return errChannel
 }
 
-// To-do: Start tracking using a persistent Polygon RPC connection that we initiated already for the collector
-// Context for this to-do is abstracting the RPC connection used by collector to a shared resource. Further work would involve avoiding duplication of blocks stored by a local RPC with blocks stored for IPFS.
-
 // RPC FUNCTIONS
 
 // Used to make many ethereum remote procedure calls over time to handle limits from rpc provider.
@@ -179,7 +177,7 @@ func (nft_tracker *Tracker) FetchAppendRedeems(fromBlock int, toBlock int) ([]Va
 			nft_tracker.AddToAddressMap(ValidatorList[vpass])
 		}
 		// Update nft_tracker.lastTrackerHeight
-		nft_tracker.lastTrackerHeight = toBlock
+		nft_tracker.LastTrackerHeight = toBlock
 	}
 	return RedeemsFound, nil
 }
