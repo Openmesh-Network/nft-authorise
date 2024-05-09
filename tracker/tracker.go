@@ -76,6 +76,7 @@ type Tracker struct {
 	LastTrackerHeight int
 	tokenIdMap        map[string][]Validator_RedeemEvent
 	addressMap        map[string][]Validator_RedeemEvent
+	Startsig          chan string
 }
 
 // Create a new tracker object to track an evenblt.
@@ -88,6 +89,7 @@ func NewTracker(rpcSourceAddress string, rpcSearchLimit int, TrackedEvent Rpc_Re
 		tokenIdMap:        map[string][]Validator_RedeemEvent{},
 		addressMap:        map[string][]Validator_RedeemEvent{},
 		LastTrackerHeight: 0,
+		Startsig:          make(chan string),
 	}
 }
 
@@ -111,6 +113,7 @@ func (nft_tracker *Tracker) StartTracking(ctx context.Context, interval time.Dur
 	if err != nil {
 		errChannel <- noLatestBlock
 	}
+	nft_tracker.Startsig <- "done"
 	fmt.Println("Found", list, "redeem events in historical search, took time:", time.Since(startTime))
 	latestCheckedBlock := int(latestBlock)
 
